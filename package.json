@@ -1,0 +1,31 @@
+{
+  "name": "@aspiro/media",
+  "version": "0.1.0",
+  "description": "Shared Cloudinary media handling for the Aspiro app suite. Signed direct uploads, ownership-scoped deletion, URL helpers.",
+  "type": "module",
+  "license": "MIT",
+  "repository": "github:ashishgupta1982/aspiro-media",
+  "files": [
+    "src"
+  ],
+  "exports": {
+    ".": "./src/index.js",
+    "./server": "./src/server/index.js",
+    "./client": "./src/client/index.js",
+    "./presets": "./src/presets/index.js"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "peerDependencies": {
+    "cloudinary": "^2.0.0"
+  },
+  "peerDependenciesMeta": {
+    "cloudinary": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "cloudinary": "^2.10.0"
+  }
+}
