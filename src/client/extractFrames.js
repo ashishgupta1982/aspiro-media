@@ -175,5 +175,13 @@ export function extractFrames(videoUrl, {
     });
 
     video.src = videoUrl;
+
+    // load() is NOT optional, however redundant it looks next to preload='auto'.
+    // Setting .src alone lets a browser fetch metadata and then stop: on mobile
+    // Safari readyState sticks at 1 (HAVE_METADATA), 'canplay' never fires, and
+    // extraction dies waiting to seek on a video that is perfectly fine.
+    // Removing this line reproduces "Video never became ready to seek" on a
+    // phone while desktop keeps working.
+    video.load();
   });
 }
