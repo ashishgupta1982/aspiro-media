@@ -109,3 +109,46 @@ test('isLikelyImageFile accepts awkward mobile photos', () => {
   assert.equal(isLikelyImageFile({ type: 'application/pdf', name: 'a.pdf' }), false);
   assert.equal(isLikelyImageFile(null), false);
 });
+
+// ── The signature handler's denial path ───────────────────────────────────
+import { createSignatureHandler } from '../src/server/index.js';
+
+function mockRes() {
+  const r = { statusCode: null, body: null, headers: {}, headersSent: false };
+  r.status = (c) => { r.statusCode = c; return r; };
+  r.json = (b) => { r.body = b; r.headersSent = true; return r; };
+  r.setHeader = (k, v) => { r.headers[k] = v; };
+  return r;
+}
+
+test('a denial preserves the resolver\'s own status code', async () => {
+  const handler = createSignatureHandler({
+    resolveOwner: async (req, res) => { res.status(401).json({ error: 'Unauthorized' }); return null; },
+  });
+  const res = mockRes();
+  process.env.CLOUDINARY_CLOUD_NAME = 'demo';
+  process.env.CLOUDINARY_API_KEY = 'k';
+  process.env.CLOUDINARY_API_SECRET = 's';
+  await handler({ method: 'GET' }, res);
+  // Must stay 401 — a generic 403 here would mask why the upload was refused.
+  assert.equal(res.statusCode, 401);
+  assert.deepEqual(res.body, { error: 'Unauthorized' });
+});
+
+test('a silent denial still refuses', async () => {
+  const handler = createSignatureHandler({ resolveOwner: async () => null });
+  const res = mockRes();
+  await handler({ method: 'GET' }, res);
+  assert.equal(res.statusCode, 403);
+});
+
+test('a wrong method is rejected before the owner is resolved', async () => {
+  let resolved = false;
+  const handler = createSignatureHandler({
+    resolveOwner: async () => { resolved = true; return null; },
+  });
+  const res = mockRes();
+  await handler({ method: 'DELETE' }, res);
+  assert.equal(res.statusCode, 405);
+  assert.equal(resolved, false);
+});

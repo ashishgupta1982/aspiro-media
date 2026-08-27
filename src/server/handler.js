@@ -60,8 +60,16 @@ export function createSignatureHandler({
       return res.status(500).json({ error: 'Failed to resolve upload target' });
     }
 
-    // resolveOwner is expected to have responded already when it denies.
-    if (!owner) return res.writableEnded ? undefined : res.status(403).json({ error: 'Not allowed' });
+    // A denial normally means resolveOwner already sent its own response — a 401
+    // for "not signed in", a 403 for "not a member of this society". Check both
+    // flags: `headersSent` is the standard signal and is set as soon as the
+    // response starts, while `writableEnded` only becomes true once it is fully
+    // finished. Testing just one of them can overwrite a reply that was already
+    // on its way, turning a precise 401 into a generic 403.
+    if (!owner) {
+      if (res.headersSent || res.writableEnded) return undefined;
+      return res.status(403).json({ error: 'Not allowed' });
+    }
     if (!owner.folder) {
       console.error('[aspiro-media] resolveOwner returned no folder');
       return res.status(500).json({ error: 'Failed to resolve upload target' });
