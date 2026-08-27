@@ -1,6 +1,6 @@
 {
   "name": "@aspiro/media",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "Shared Cloudinary media handling for the Aspiro app suite. Signed direct uploads, ownership-scoped deletion, URL helpers.",
   "type": "module",
   "license": "MIT",

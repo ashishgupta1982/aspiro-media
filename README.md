@@ -33,7 +33,7 @@ Both are now impossible rather than documented — see `uploadDirect` below.
 ```jsonc
 // package.json
 "dependencies": {
-  "@aspiro/media": "https://github.com/ashishgupta1982/aspiro-media/archive/refs/tags/v0.4.1.tar.gz",
+  "@aspiro/media": "https://github.com/ashishgupta1982/aspiro-media/archive/refs/tags/v0.5.0.tar.gz",
   "cloudinary": "^2.10.0"
 }
 ```
@@ -144,6 +144,20 @@ const { url, publicId } = await uploadDirect(file, {
   signatureUrl: '/api/cloudinary-signature',
 });
 ```
+
+For anything large — a video, a scanned PDF — pass `onProgress`:
+
+```js
+await uploadDirect(file, {
+  signatureUrl: '/api/cloudinary/signature',
+  onProgress: (percent) => setProgress(percent),
+});
+```
+
+That switches the upload to XMLHttpRequest, which is the only way a browser
+reports upload progress; `fetch` tells you nothing until the response arrives.
+Without it a phone on a slow connection sits on a dead-looking spinner for the
+whole transfer. Omit it and the fetch path is used, unchanged.
 
 **Do not build the form yourself.** The route returns the exact `fields` it
 signed and `uploadDirect` posts precisely those plus the file, so the signed set
