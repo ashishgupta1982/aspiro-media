@@ -17,6 +17,8 @@
  * @param {number} [options.maxDuration=5]  only look at the first N seconds
  * @param {number} [options.maxDimension=1280] longest edge of each frame
  * @param {number} [options.quality=0.85]   JPEG quality
+ * @param {number} [options.loadTimeoutMs=30000] give up if the video never
+ *   reports its metadata — see the note on the timer below
  * @param {Function} [options.onProgress]   (done, total) => void
  * @param {AbortSignal} [options.signal]
  * @returns {Promise<Array<{file: File, timestamp: string, index: number}>>}
@@ -27,6 +29,7 @@ export function extractFrames(videoUrl, {
   maxDuration = 5,
   maxDimension = 1280,
   quality = 0.85,
+  loadTimeoutMs = 30000,
   onProgress,
   signal,
 } = {}) {
@@ -40,6 +43,11 @@ export function extractFrames(videoUrl, {
     video.playsInline = true;
 
     let settled = false;
+    let metadataSeen = false;
+    // Declared up here, not at the setTimeout below: cleanup() closes over it,
+    // and a const assigned later would put it in the temporal dead zone for any
+    // failure path that runs before then.
+    let loadTimer;
     const fail = (error) => { if (!settled) { settled = true; cleanup(); reject(error); } };
     const done = (value) => { if (!settled) { settled = true; cleanup(); resolve(value); } };
 
@@ -47,6 +55,7 @@ export function extractFrames(videoUrl, {
     signal?.addEventListener('abort', onAbort);
 
     function cleanup() {
+      clearTimeout(loadTimer);
       signal?.removeEventListener('abort', onAbort);
       video.removeAttribute('src');
       try { video.load(); } catch { /* already torn down */ }
@@ -57,7 +66,21 @@ export function extractFrames(videoUrl, {
       fail(new Error(err ? `Video error (code ${err.code})` : 'Failed to load video'));
     });
 
+    // A video that never loads fires NEITHER 'loadedmetadata' NOR 'error', and
+    // without this the promise simply never settles. It is not hypothetical:
+    // frames are usually pulled from a Cloudinary URL immediately after upload,
+    // and the transcode may not have finished, so the file is briefly not there
+    // to load. The per-seek timeouts inside cannot help — they only start once
+    // metadata has arrived.
+    loadTimer = setTimeout(() => {
+      if (!metadataSeen) {
+        fail(new Error('Video loading timed out — it may still be processing. Please try again.'));
+      }
+    }, loadTimeoutMs);
+
     video.addEventListener('loadedmetadata', async () => {
+      metadataSeen = true;
+      clearTimeout(loadTimer);
       try {
         // readyState 3 (HAVE_FUTURE_DATA) means we can seek and draw. Some
         // browsers reach it before 'canplay' fires, so check first and only
