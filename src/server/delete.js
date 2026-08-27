@@ -68,8 +68,16 @@ export async function deleteOwned({ publicIds = [], videoPublicIds = [], prefixe
  * Tutor App deletes a revision list's whole folder once it has confirmed the
  * list belongs to the caller. `prefixes` is still required, so a bug upstream
  * cannot hand this another app's folder.
+ *
+ * @param {string} folderPath
+ * @param {object} options
+ * @param {string[]} options.prefixes  from `ownedPrefixes()`
+ * @param {boolean} [options.invalidate=false] purge the CDN as well as deleting
+ *   the asset. Without it a deleted file keeps being served from cache until it
+ *   expires — which matters when the file is someone's exam paper rather than a
+ *   decorative image. Costs an invalidation against the Cloudinary plan.
  */
-export async function deleteFolder(folderPath, { prefixes = [] } = {}) {
+export async function deleteFolder(folderPath, { prefixes = [], invalidate = false } = {}) {
   if (!folderPath) throw new Error('[aspiro-media] deleteFolder requires a folder path');
   if (!isOwnedBy(`${folderPath}/`, prefixes)) {
     throw new Error(`[aspiro-media] refusing to delete ${folderPath}: outside the owner's folders`);
@@ -77,22 +85,29 @@ export async function deleteFolder(folderPath, { prefixes = [] } = {}) {
 
   const cloudinary = configureCloudinary();
   const deleted = {};
+  const notFound = [];
+
+  // Cloudinary matches this as a literal prefix, so without the trailing slash
+  // `.../exam-1` would also sweep `.../exam-10`.
+  const prefix = folderPath.endsWith('/') ? folderPath : `${folderPath}/`;
 
   for (const resourceType of ['image', 'video', 'raw']) {
-    const result = await cloudinary.api.delete_resources_by_prefix(folderPath, {
+    const result = await cloudinary.api.delete_resources_by_prefix(prefix, {
       resource_type: resourceType,
       type: 'upload',
+      ...(invalidate ? { invalidate: true } : {}),
     });
     Object.assign(deleted, result.deleted || {});
+    notFound.push(...(result.not_found || []));
   }
 
   // Cloudinary keeps the (now empty) folder node around; remove it so the
   // console does not fill with empty per-exam folders.
   try {
-    await cloudinary.api.delete_folder(folderPath);
+    await cloudinary.api.delete_folder(prefix);
   } catch {
     // Non-fatal: the folder may be gone already, or still settling.
   }
 
-  return { deleted };
+  return { deleted, notFound };
 }

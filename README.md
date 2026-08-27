@@ -33,7 +33,7 @@ Both are now impossible rather than documented — see `uploadDirect` below.
 ```jsonc
 // package.json
 "dependencies": {
-  "@aspiro/media": "https://github.com/ashishgupta1982/aspiro-media/archive/refs/tags/v0.5.0.tar.gz",
+  "@aspiro/media": "https://github.com/ashishgupta1982/aspiro-media/archive/refs/tags/v0.5.1.tar.gz",
   "cloudinary": "^2.10.0"
 }
 ```
