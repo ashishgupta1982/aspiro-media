@@ -33,7 +33,7 @@ Both are now impossible rather than documented — see `uploadDirect` below.
 ```jsonc
 // package.json
 "dependencies": {
-  "@aspiro/media": "https://github.com/ashishgupta1982/aspiro-media/archive/refs/tags/v0.2.0.tar.gz",
+  "@aspiro/media": "https://github.com/ashishgupta1982/aspiro-media/archive/refs/tags/v0.3.0.tar.gz",
   "cloudinary": "^2.10.0"
 }
 ```
@@ -183,28 +183,26 @@ so an upstream bug cannot hand it another app's folder.
 
 ## Server-side uploads
 
-When the bytes are already on the server — an image fetched from a URL, a
-frame rendered server-side — use `uploadBuffer`:
+When the bytes are already on the server — an image fetched from a URL, a frame
+rendered server-side — use `uploadBuffer`:
 
 ```js
-import { uploadBuffer, uploadFromUrl } from '@aspiro/media/server';
+import { uploadBuffer } from '@aspiro/media/server';
 
 await uploadBuffer(buffer, { folder, publicId, transformation: [...] });
-await uploadFromUrl(url, { folder, publicId });
 ```
 
-`uploadFromUrl` **guards the fetch and cannot be told not to.** Any route that
-takes a URL from a request and fetches it server-side is an SSRF hole unless it
-checks where that URL points, and the valuable targets are not exotic:
-`169.254.169.254` is cloud instance metadata, `127.0.0.1:<port>` is whatever
-else the box runs. So it allows http(s) only, refuses any host resolving to a
-private or reserved address, and re-validates every redirect hop — a public URL
-is otherwise free to 302 straight into the metadata endpoint.
+**Fetching the URL is the app's job, not this package's**, and it needs an SSRF
+guard: any route that fetches a user-supplied URL server-side can be pointed at
+`169.254.169.254` for cloud instance metadata, or at anything else listening on
+localhost. Guard the URL, then hand the bytes here. CookBook's
+`src/lib/ssrfGuard.js` is the reference implementation — `assertSafeUrl` plus a
+`safeFetch` that re-validates every redirect hop, because a public URL is
+otherwise free to 302 straight into an internal one.
 
-`safeFetch` / `assertSafeUrl` are exported for routes that fetch a user URL
-without uploading it. Note this is the one part of the package that is not
-really about media: it lives here because `uploadFromUrl` cannot be safe
-without it, and a general `@aspiro/utils` is its eventual home.
+That guard deliberately stays in the apps. It is not a media concern, and there
+is no shared utility package to put it in; when one exists it belongs there, not
+here.
 
 ## Presets
 
@@ -254,7 +252,7 @@ draw, and not hanging when it never becomes ready.
 | App | Notes |
 |---|---|
 | CookBook | First migration. Has legacy name-foldered assets, so `includeLegacyName: true`. |
-| DoIt | Signs a `transformation` so stored images are capped at 1600px. Its image-from-URL route was an unguarded server-side fetch, which is why `uploadFromUrl` exists. |
+| DoIt | Signs a `transformation` so stored images are capped at 1600px. Fetches its image-from-URL bytes behind its own SSRF guard, then calls `uploadBuffer`. |
 
 ## Tests
 

@@ -1,9 +1,5 @@
 import { configureCloudinary } from './config.js';
 import { generatePublicId } from './sign.js';
-import { safeFetch } from './safeFetch.js';
-
-const DEFAULT_MAX_BYTES = 20 * 1024 * 1024;
-const DEFAULT_TIMEOUT_MS = 15000;
 
 /**
  * Upload a buffer from the server.
@@ -51,60 +47,4 @@ export function uploadBuffer(buffer, {
     );
     stream.end(buffer);
   });
-}
-
-/**
- * Fetch a remote image and upload it — safely.
- *
- * The URL comes from the client in every real use of this (an AI-suggested
- * photo, a pasted link), so the fetch is guarded: http(s) only, no host that
- * resolves to a private or reserved address, and every redirect hop re-checked.
- * That guard is not optional and cannot be switched off, because the whole
- * reason this lives in the package is that one app had it and another did not.
- *
- * @param {string} url
- * @param {object} options — everything uploadBuffer takes, plus:
- * @param {number} [options.maxBytes=20MB]
- * @param {number} [options.timeoutMs=15000]
- */
-export async function uploadFromUrl(url, {
-  maxBytes = DEFAULT_MAX_BYTES,
-  timeoutMs = DEFAULT_TIMEOUT_MS,
-  ...uploadOptions
-} = {}) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-
-  let response;
-  try {
-    response = await safeFetch(url, {
-      signal: controller.signal,
-      headers: { 'User-Agent': 'aspiro-media/1.0' },
-    });
-  } finally {
-    clearTimeout(timer);
-  }
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch image: ${response.status}`);
-  }
-
-  const contentType = response.headers.get('content-type') || '';
-  if (!contentType.startsWith('image/')) {
-    throw new Error('URL does not point to an image');
-  }
-
-  // Trust the declared length when it is there, but check the real size too —
-  // Content-Length is attacker-controlled and may simply be absent.
-  const declared = Number(response.headers.get('content-length'));
-  if (Number.isFinite(declared) && declared > maxBytes) {
-    throw new Error('Image too large');
-  }
-
-  const buffer = Buffer.from(await response.arrayBuffer());
-  if (buffer.length > maxBytes) {
-    throw new Error('Image too large');
-  }
-
-  return uploadBuffer(buffer, uploadOptions);
 }

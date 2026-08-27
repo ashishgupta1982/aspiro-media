@@ -7,5 +7,4 @@ export { configureCloudinary, isCloudinaryConfigured, cloudinary } from './confi
 export { buildSignedUpload, generatePublicId } from './sign.js';
 export { createSignatureHandler } from './handler.js';
 export { deleteOwned, deleteFolder } from './delete.js';
-export { uploadBuffer, uploadFromUrl } from './upload.js';
-export { safeFetch, assertSafeUrl, isPrivateAddress } from './safeFetch.js';
+export { uploadBuffer } from './upload.js';
