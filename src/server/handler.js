@@ -19,9 +19,15 @@ import { buildSignedUpload, generatePublicId } from './sign.js';
  * @param {object}   options
  * @param {Function} options.resolveOwner  async (req, res) => { folder, id } | null.
  *   Return null (having sent your own response) to deny. Throw to 500.
- * @param {string}   [options.label]       public-id prefix, e.g. 'recipe'.
- * @param {string}   [options.format]      signed format. Defaults to 'jpg'.
- * @param {string}   [options.resourceType] 'image' | 'video' | 'raw'.
+ * @param {string|Function} [options.label]  public-id prefix, e.g. 'recipe'.
+ * @param {string|Function} [options.format] signed format, or null for none —
+ *   a transformation ending in f_jpg already sets it.
+ * @param {string|Function} [options.resourceType] 'image' | 'video' | 'raw'.
+ *
+ * label, format, resourceType and params may each be a function of
+ * (req, owner). One request can legitimately need different answers: Tutor App
+ * signs an exam photo as an image with the document-scan transformation, and a
+ * PDF on the same route as raw with none.
  * @param {object|Function} [options.params] extra SIGNED upload params, e.g.
  *   `{ transformation: 'c_limit,w_1600,q_auto,f_auto' }`. Anything put here is
  *   signed and sent; nothing else ever is.
@@ -82,14 +88,21 @@ export function createSignatureHandler({
       }
     }
 
-    const extraParams = typeof params === 'function' ? await params(req, owner) : params;
+    const resolve = async (value) => (typeof value === 'function' ? value(req, owner) : value);
 
     try {
+      const [extraParams, resolvedLabel, resolvedFormat, resolvedResourceType] = await Promise.all([
+        resolve(params),
+        resolve(label),
+        resolve(format),
+        resolve(resourceType),
+      ]);
+
       const payload = buildSignedUpload({
         folder: owner.folder,
-        publicId: generatePublicId(label),
-        format,
-        resourceType,
+        publicId: generatePublicId(resolvedLabel || 'upload'),
+        format: resolvedFormat,
+        resourceType: resolvedResourceType || 'image',
         params: extraParams || {},
       });
       return res.status(200).json(payload);

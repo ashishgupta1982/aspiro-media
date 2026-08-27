@@ -152,3 +152,33 @@ test('a wrong method is rejected before the owner is resolved', async () => {
   assert.equal(res.statusCode, 405);
   assert.equal(resolved, false);
 });
+
+test('label, format and resourceType may be functions of the request', async () => {
+  process.env.CLOUDINARY_CLOUD_NAME = 'demo';
+  process.env.CLOUDINARY_API_KEY = 'k';
+  process.env.CLOUDINARY_API_SECRET = 's';
+
+  const handler = createSignatureHandler({
+    label: (req) => (req.body.forPdf ? 'doc' : 'photo'),
+    format: (req) => (req.body.forPdf ? null : 'jpg'),
+    resourceType: (req) => (req.body.forPdf ? 'raw' : 'image'),
+    params: (req) => (req.body.forPdf ? {} : { transformation: 'e_grayscale' }),
+    resolveOwner: async () => ({ id: 'u1', folder: 'app/u1' }),
+  });
+
+  const image = mockRes();
+  await handler({ method: 'POST', body: {} }, image);
+  assert.match(image.body.uploadUrl, /\/image\/upload$/);
+  assert.match(image.body.publicId, /^photo-/);
+  assert.equal(image.body.fields.format, 'jpg');
+  assert.equal(image.body.fields.transformation, 'e_grayscale');
+
+  const pdf = mockRes();
+  await handler({ method: 'POST', body: { forPdf: true } }, pdf);
+  assert.match(pdf.body.uploadUrl, /\/raw\/upload$/);
+  assert.match(pdf.body.publicId, /^doc-/);
+  // A PDF must carry no format and no transformation — both would be signed,
+  // and neither means anything for a raw file.
+  assert.equal('format' in pdf.body.fields, false);
+  assert.equal('transformation' in pdf.body.fields, false);
+});
