@@ -27,7 +27,10 @@ export function uploadBuffer(buffer, {
       {
         folder,
         public_id: publicId || generatePublicId('upload'),
-        format,
+        // Omitted when falsy rather than sent as undefined: a transformation
+        // that already ends in f_jpg sets the format itself, and passing both
+        // makes Cloudinary pick between two conflicting instructions.
+        ...(format ? { format } : {}),
         resource_type: resourceType,
         ...(transformation ? { transformation } : {}),
         ...rest,
