@@ -95,9 +95,14 @@ files remain deletable. Drop the flag once an app has no legacy assets left.
 ### Who the owner is differs; the algorithm does not
 
 - **CookBook, DoIt, RunCoach, Tutor App** — the owner is the signed-in user.
-- **GolfSoc** — the owner is a *society*, and membership is verified first.
-  Society assets are collaborative by design: the event organiser must be able
-  to replace a photo another member uploaded. Per-user folders would break that.
+- **GolfSoc** — assets are stored per user at `golfsoc/<userId>/…`, but deletes
+  are scoped to the **app prefix** rather than the uploader's folder. Society
+  assets are collaborative by design: the organiser must be able to delete an
+  event whose photo another member uploaded, so authority comes from the
+  `create_event` permission on the *record*, not from the folder. Same
+  record-as-authority model as Tutor App — see
+  `golfsoc/src/lib/cloudinaryOwnership.js`. (Corrected 2026-09-20; this entry
+  used to say the owner was the society.)
 
 Both are "resolve an owner, derive a folder from verified data, prefix-check
 every delete". That is why `createSignatureHandler` takes a `resolveOwner` hook
