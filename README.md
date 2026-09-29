@@ -270,7 +270,7 @@ draw, and not hanging when it never becomes ready.
 
 | App | Notes |
 |---|---|
-| CookBook | First migration. Has legacy name-foldered assets, so `includeLegacyName: true`. |
+| CookBook | First migration. Has legacy name-foldered assets, so `includeLegacyName: true`. From v0.6.0 (2026-09-29) it also stores AI recipe photos: `@aspiro/ai/images` returns a URL, CookBook fetches it behind its SSRF guard and calls `uploadBuffer` into `CookBook/<userId>/ai-<recipeId>`. |
 | DoIt | Signs a `transformation` so stored images are capped at 1600px. Fetches its image-from-URL bytes behind its own SSRF guard, then calls `uploadBuffer`. |
 
 ## Tests
